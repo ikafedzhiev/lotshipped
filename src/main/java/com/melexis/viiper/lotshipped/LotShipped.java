@@ -1,43 +1,38 @@
 package com.melexis.viiper.lotshipped;
 
-import java.io.IOException;
-import java.io.InputStream;
 
-import org.apache.camel.CamelContext;
-//import org.apache.camel.Main;
+import com.melexis.foundation.util.IO;
+
+import org.apache.camel.*;
 import org.apache.camel.builder.RouteBuilder;
-//import org.apache.camel.spring.Main;
+import org.apache.camel.model.language.SimpleExpression;
 
 
 public class LotShipped extends RouteBuilder{
 	
-	private String query;  
 	
-	public LotShipped () throws IOException {
-		final InputStream is = getClass().getClassLoader().getResourceAsStream("sql/lotshipped.sql");
-		byte[] buf = new byte[is.available()];
-		is.read(buf);
-		query = new String (buf);
-	} 
-	
+	private Processor PrepareQueryFinalLotsShipped = new Processor()	{
+		@Override
+		public void process(Exchange exchange) throws Exception {
+			final Message in = exchange.getIn();    		
+			in.setBody(in.getHeader("LOTNAME", String.class));
+			final String query = IO.resourceAsString(LotShipped.class, "sql/lotshipped.sql");
+			final String evaluated = (String) new SimpleExpression(query).evaluate(exchange);
+			in.setBody(evaluated);
+		}
+	};	
 	
 	@Override
 	public void configure() throws Exception {
-		// TODO Auto-generated method stub
-		from("timer://kickoff?period=10s")
-		.log("Viiper select")
-		.setBody(simple(query))
-		.to("jdbc://viiper-ds")
-		.split().body()
-		.log("Got body: ${body}")
-		.to("activemq:topic:VirtualTopic.viiper_lotshipped");
-		
-		from("activemq:Consumer.Sofia.VirtualTopic.viiper_lotshipped")		
-		.log("Got it.....SOFIA");
-		
-		from ("activemq:Consumer.Ieper.VirtualTopic.viiper_lotshipped")		
-		.log("Got it.....IEPER");
-	}
 
+		from("activemqewaf:topic:VirtualTopic.viiper.customerdeliveries")
+			.log("GOT DELIVERY FROM EWAF with body: ${body},  id: ${id}, exchangeId: ${exchangeId}")
+			.process(PrepareQueryFinalLotsShipped)
+			.to("jdbc:viiper-ds")
+			.split().body()
+			.log("Got RESULT from crosscheck: ${body}")
+			.to("activemq:topic:VirtualTopic.viiper.customerdeliveries.finallotsshipped");
+
+	}
 
 }

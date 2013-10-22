@@ -15,15 +15,18 @@ AND cst.customer_id          = wdd.customer_id
 AND msi.inventory_item_id    = wdd.inventory_item_id
 AND msi.organization_id      = wdd.organization_id
 AND msi.item_type            = 'FG'
-AND wnd.confirm_date        >= to_date( '20130101' , 'YYYYMMDD')
-AND wnd.confirm_date        <= to_date( '20130103' , 'YYYYMMDD')
+-- AND wnd.confirm_date        >= to_date( '20130101' , 'YYYYMMDD')
+-- AND wnd.confirm_date        <= to_date( '20130103' , 'YYYYMMDD')
 AND wdj.lot_number           = wdd.lot_number
 AND wdj.organization_id     IN (113,114,115)
 AND NOT EXISTS
   (SELECT 1
-  FROM apps.mtl_onhand_quantities moq
-  WHERE wdd.lot_number = moq.lot_number
+	FROM apps.mtl_onhand_quantities moq
+	WHERE wdd.lot_number = moq.lot_number
   )
+AND wdd.lot_number != '${in.body}'
+AND ROWNUM < 50
 GROUP BY wdd.lot_number,
   wdj.organization_id
 ORDER BY lot_number 
+
